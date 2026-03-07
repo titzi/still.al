@@ -225,7 +225,16 @@
       var snd  = document.getElementById('snd');
       var hats = document.getElementById('hats');
       snd.loop = true;
-      snd.play().catch(function () {});
+
+      function startAudio() {
+        snd.play().catch(function () {});
+      }
+      ['click', 'touchstart', 'keydown'].forEach(function (ev) {
+        document.addEventListener(ev, function handler() {
+          startAudio();
+          document.removeEventListener(ev, handler);
+        });
+      });
 
       function placeRandom() {
         var pw = el.offsetWidth  || 300;
