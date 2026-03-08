@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23000'/><text x='16' y='23' font-family='serif' font-size='16' font-weight='bold' fill='%23ccc' text-anchor='middle'>al</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&display=swap">
-<style>
+  <style>
     *, *::before, *::after {
       box-sizing: border-box;
       margin: 0;
@@ -19,10 +19,9 @@
       height: 100%;
       overflow: hidden;
       background: #000;
-      cursor: pointer;
     }
 
-    /* ── Layer 1: Photo backgrounds ─────────────────────────────── */
+    /* ── Background layers ───────────────────────────────────────── */
     .bg {
       position: fixed;
       inset: 0;
@@ -33,10 +32,20 @@
       filter: grayscale(0.5) contrast(1.4) brightness(0.55);
       opacity: 0.3;
     }
-    .bg1 { background-color: #0a0a0a; background-image: url('images/bg1.jpg'); opacity: 0; }
-    .bg2 { background-image: url('images/bg2.jpg'); mix-blend-mode: lighten; }
+    .bg1 {
+      background-color: #0a0a0a;
+      background-image: url('images/bg1.jpg');
+      opacity: 0;
+    }
+    .bg2 {
+      background-image: url('images/bg2.jpg');
+      mix-blend-mode: lighten;
+      opacity: 0;
+      transition: opacity 5s ease;
+      /* filter: grayscale(1) contrast(1.4) brightness(0.55); */
+    }
 
-    /* ── Layer 2: Animated grain canvas ─────────────────────────── */
+    /* ── Grain canvas ────────────────────────────────────────────── */
     #grain {
       position: fixed;
       inset: 0;
@@ -46,7 +55,7 @@
       mix-blend-mode: screen;
     }
 
-    /* ── Layer 3: Scanlines ──────────────────────────────────────── */
+    /* ── Scanlines ───────────────────────────────────────────────── */
     .scanlines {
       position: fixed;
       inset: 0;
@@ -61,7 +70,7 @@
       );
     }
 
-    /* ── Center stage ────────────────────────────────────────────── */
+    /* ── Stage ───────────────────────────────────────────────────── */
     .stage {
       position: fixed;
       inset: 0;
@@ -77,12 +86,11 @@
       letter-spacing: 0.12em;
       color: #bbb;
       -webkit-text-stroke: 1px #000;
+      text-stroke: 1px #000;
       text-transform: lowercase;
       user-select: none;
       white-space: nowrap;
-      /* position + drift handled by JS */
     }
-
 
     .glitch::before,
     .glitch::after {
@@ -91,10 +99,10 @@
       inset: 0;
       font: inherit;
       letter-spacing: inherit;
-      -webkit-text-stroke: 0;
+      -webkit-text-stroke: 0px transparent;
+      text-stroke: 0px transparent;
     }
 
-    /* Red channel — clips top portion */
     .glitch::before {
       color: #ff0033;
       clip-path: polygon(0 0, 100% 0, 100% 42%, 0 42%);
@@ -102,7 +110,6 @@
       transform: translate(var(--rx, 0px), var(--ry, 0px)) skewX(var(--rs, 0deg));
     }
 
-    /* Cyan channel — clips bottom portion */
     .glitch::after {
       color: #00e5ff;
       clip-path: polygon(0 58%, 100% 58%, 100% 100%, 0 100%);
@@ -112,11 +119,38 @@
 
     .glitch.pop::before { opacity: 1; }
     .glitch.pop::after  { opacity: 1; }
+
+    /* ── Enter screen ────────────────────────────────────────────── */
+    #enter {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: opacity 1s ease;
+    }
+    #enter a {
+      font-family: 'UnifrakturMaguntia', cursive;
+      font-size: clamp(4rem, 9vw, 6rem);
+      color: #ccc;
+      text-decoration: none;
+      letter-spacing: 0.15em;
+      user-select: none;
+      display: inline-block;
+      transform: rotate(180deg);
+      transition: transform 0.4s ease;
+      opacity: 0.2;
+    }
+    #enter a:hover {
+      opacity: 0.4;
+    }
   </style>
 </head>
 <body>
 
-<audio id="snd" preload="auto">
+  <audio id="snd" preload="auto">
     <source src="audio/track.mp3" type="audio/mpeg">
     <source src="audio/track.ogg" type="audio/ogg">
   </audio>
@@ -134,179 +168,190 @@
     <h1 class="glitch" data-text="still.al">still.al</h1>
   </div>
 
+  <div id="enter">
+    <a href="#">&blacktriangleleft;</a>
+  </div>
+
   <script>
-    (function () {
-      // Each layer drifts via summed sines at irrational frequency ratios —
-      // motion is smooth, continuous, and never repeats.
-      var layers = [
-        {
-          el: document.querySelector('.bg1'),
-          wx: [0.00021, 0.00013, 0.000079],
-          wy: [0.00017, 0.000091, 0.00023],
-          px: [0.0,  1.1, 2.7],
-          py: [0.5,  2.3, 0.9],
-          ax: [1.4,  0.9, 0.5],
-          ay: [1.1,  0.7, 0.6]
-        },
-        {
-          el: document.querySelector('.bg2'),
-          wx: [0.00019, 0.000071, 0.00031],
-          wy: [0.00023, 0.00011,  0.000061],
-          px: [1.3,  0.4, 3.1],
-          py: [2.1,  1.7, 0.3],
-          ax: [2.4,  1.6, 1.2],
-          ay: [2.6,  1.0, 1.4]
+  (function () {
+
+    // ── Elements ──────────────────────────────────────────────────
+    var el    = document.querySelector('.glitch');
+    var bg1   = document.querySelector('.bg1');
+    var bg2   = document.querySelector('.bg2');
+    var snd   = document.getElementById('snd');
+    snd.loop  = true;
+    var hats  = document.getElementById('hats');
+    var enter = document.getElementById('enter');
+
+    // ── Background drift (summed sines, never repeats) ────────────
+    var bgLayers = [
+      {
+        el: bg1,
+        wx: [0.00021, 0.00013, 0.000079], wy: [0.00017, 0.000091, 0.00023],
+        px: [0.0, 1.1, 2.7],              py: [0.5, 2.3, 0.9],
+        ax: [1.4, 0.9, 0.5],              ay: [1.1, 0.7, 0.6]
+      },
+      {
+        el: bg2,
+        wx: [0.00019, 0.000071, 0.00031], wy: [0.00023, 0.00011, 0.000061],
+        px: [1.3, 0.4, 3.1],              py: [2.1, 1.7, 0.3],
+        ax: [2.4, 1.6, 1.2],              ay: [2.6, 1.0, 1.4]
+      }
+    ];
+
+    var shake = { active: false, x: 0, y: 0 };
+
+    function bgTick(t) {
+      bgLayers.forEach(function (l, i) {
+        var x = 0, y = 0;
+        for (var j = 0; j < 3; j++) {
+          x += Math.sin(t * l.wx[j] + l.px[j]) * l.ax[j];
+          y += Math.cos(t * l.wy[j] + l.py[j]) * l.ay[j];
         }
-      ];
-
-      window._bg2shake = { active: false, x: 0, y: 0 };
-
-      function tick(t) {
-        layers.forEach(function (l, i) {
-          var x = 0, y = 0;
-          for (var j = 0; j < 3; j++) {
-            x += Math.sin(t * l.wx[j] + l.px[j]) * l.ax[j];
-            y += Math.cos(t * l.wy[j] + l.py[j]) * l.ay[j];
-          }
-          var shake = (i === 1 && window._bg2shake.active)
-            ? ' translate(' + window._bg2shake.x + 'px,' + window._bg2shake.y + 'px)'
-            : '';
-          l.el.style.transform = 'scale(1.08) translate(' + x + '%, ' + y + '%)' + shake;
-        });
-        requestAnimationFrame(tick);
-      }
-      requestAnimationFrame(tick);
-    })();
-
-    (function () {
-      var canvas = document.getElementById('grain');
-      var ctx    = canvas.getContext('2d');
-
-      function resize() {
-        canvas.width  = window.innerWidth;
-        canvas.height = window.innerHeight;
-      }
-
-      function drawGrain() {
-        var w   = canvas.width;
-        var h   = canvas.height;
-        var img = ctx.createImageData(w, h);
-        var d   = img.data;
-        for (var i = 0; i < d.length; i += 4) {
-          var v = (Math.random() * 255) | 0;
-          d[i]     = v;
-          d[i + 1] = v;
-          d[i + 2] = v;
-          d[i + 3] = 255;
-        }
-        ctx.putImageData(img, 0, 0);
-      }
-
-      resize();
-      window.addEventListener('resize', resize);
-      setInterval(drawGrain, 100);
-      drawGrain();
-    })();
-
-    (function () {
-      var el  = document.querySelector('.glitch');
-      var bg1 = document.querySelector('.bg1');
-      var bg2 = document.querySelector('.bg2');
-      var amp = 5;
-      var visible = true;
-
-      // Fast shake interval for bg2
-      setInterval(function () {
-        if (window._bg2shake.active) {
-          window._bg2shake.x = (Math.random() * 2 - 1) * 10;
-          window._bg2shake.y = (Math.random() * 2 - 1) * 10;
-        }
-      }, 40);
-
-      var snd  = document.getElementById('snd');
-      var hats = document.getElementById('hats');
-      snd.loop = true;
-
-      function startAudio() {
-        snd.play().catch(function () {});
-      }
-      ['click', 'touchstart', 'keydown'].forEach(function (ev) {
-        document.addEventListener(ev, function handler() {
-          startAudio();
-          document.removeEventListener(ev, handler);
-        });
+        var s = (i === 1 && shake.active)
+          ? ' translate(' + shake.x + 'px,' + shake.y + 'px)' : '';
+        l.el.style.transform = 'scale(1.08) translate(' + x + '%, ' + y + '%)' + s;
       });
+      requestAnimationFrame(bgTick);
+    }
+    requestAnimationFrame(bgTick);
 
-      function placeRandom() {
-        var pw = el.offsetWidth  || 300;
-        var ph = el.offsetHeight || 80;
-        var x = pw * 0.5 + Math.random() * (window.innerWidth  - pw);
-        var y = ph * 0.5 + Math.random() * (window.innerHeight - ph);
-        el.style.left = x + 'px';
-        el.style.top  = y + 'px';
+    // ── Grain canvas ──────────────────────────────────────────────
+    var canvas = document.getElementById('grain');
+    var ctx    = canvas.getContext('2d');
+
+    function resizeGrain() {
+      canvas.width  = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    function drawGrain() {
+      var w = canvas.width, h = canvas.height;
+      var img = ctx.createImageData(w, h);
+      var d = img.data;
+      for (var i = 0; i < d.length; i += 4) {
+        var v = (Math.random() * 255) | 0;
+        d[i] = d[i+1] = d[i+2] = v;
+        d[i+3] = 255;
+      }
+      ctx.putImageData(img, 0, 0);
+    }
+    resizeGrain();
+    window.addEventListener('resize', resizeGrain);
+    setInterval(drawGrain, 100);
+    drawGrain();
+
+    // ── Text jitter ───────────────────────────────────────────────
+    var visible = false;
+
+    el.style.left    = '50%';
+    el.style.top     = '50%';
+    el.style.opacity = '0';
+    el.style.transform = 'translate(-50%, -50%)';
+
+    setInterval(function () {
+      if (!visible) return;
+      var x    = (Math.random() * 2 - 1) * 5;
+      var y    = (Math.random() * 2 - 1) * 5;
+      var skew = (Math.random() * 2 - 1) * 0.6;
+      el.style.transform = 'translate(calc(-50% + ' + x + 'px), calc(-50% + ' + y + 'px)) skewX(' + skew + 'deg)';
+    }, 40);
+
+    // Shake bg2 while text is visible
+    setInterval(function () {
+      if (!shake.active) return;
+      shake.x = (Math.random() * 2 - 1) * 10;
+      shake.y = (Math.random() * 2 - 1) * 10;
+    }, 40);
+
+    // ── Chroma pop ────────────────────────────────────────────────
+    function r(range) { return (Math.random() * 2 - 1) * range; }
+
+    function chromaPop() {
+      el.style.setProperty('--rx', r(10) + 'px');
+      el.style.setProperty('--ry', r(4)  + 'px');
+      el.style.setProperty('--rs', r(7)  + 'deg');
+      el.style.setProperty('--cx', r(10) + 'px');
+      el.style.setProperty('--cy', r(4)  + 'px');
+      el.style.setProperty('--cs', r(7)  + 'deg');
+      el.classList.add('pop');
+      setTimeout(function () {
+        el.classList.remove('pop');
+        setTimeout(chromaPop, 80 + Math.random() * 600);
+      }, 40 + Math.random() * 140);
+    }
+    chromaPop();
+
+    // ── Show/hide cycle ───────────────────────────────────────────
+    function placeRandom() {
+      var pw = el.offsetWidth  || 300;
+      var ph = el.offsetHeight || 80;
+      el.style.left = (pw * 0.5 + Math.random() * (window.innerWidth  - pw)) + 'px';
+      el.style.top  = (ph * 0.5 + Math.random() * (window.innerHeight - ph)) + 'px';
+    }
+
+    function cycle() {
+      visible = false;
+      el.style.opacity  = '0';
+      bg1.style.opacity = '0';
+      shake.active      = false;
+      bg2.style.filter  = '';
+      hats.pause();
+
+      hats.playbackRate = 4;
+      if (hats.readyState >= 2 && hats.duration) {
+        hats.currentTime = Math.random() * hats.duration;
       }
 
-      // Start centered, hidden
-      el.style.left    = '50%';
-      el.style.top     = '50%';
-      el.style.opacity = '0';
-      el.style.transform = 'translate(-50%, -50%)';
+      setTimeout(function () {
+        placeRandom();
+        visible = true;
+        el.style.opacity  = '1';
+        bg1.style.opacity = '0.3';
+        shake.active      = true;
+        bg2.style.filter  = 'grayscale(1) contrast(1.4) brightness(0.55)';
+        hats.play().catch(function () {});
+        var showFor = Math.random() < 0.5
+          ? 50  + Math.random() * 150
+          : 900 + Math.random() * 2100;
+        setTimeout(cycle, showFor);
+      }, 3000 + Math.random() * 8000);
+    }
 
-      function jitter() {
-        if (!visible) return;
-        var x    = (Math.random() * 2 - 1) * amp;
-        var y    = (Math.random() * 2 - 1) * amp;
-        var skew = (Math.random() * 2 - 1) * 0.6;
-        el.style.transform = 'translate(calc(-50% + ' + x + 'px), calc(-50% + ' + y + 'px)) skewX(' + skew + 'deg)';
+    // ── Enter drift ───────────────────────────────────────────────
+    var enterLink = enter.querySelector('a');
+    var enterFlick = false;
+    setInterval(function () {
+      if (enterFlick) {
+        enterFlick = false;
+        return;
       }
-      setInterval(jitter, 40);
-
-      function cycle() {
-        // hide
-        visible = false;
-        el.style.opacity = '0';
-        bg1.style.opacity = '0';
-        window._bg2shake.active = false;
-        bg2.style.filter = '';
-        hats.pause();
-        // Pre-seek during the hidden gap so play() fires instantly on appearance
-        hats.playbackRate = Math.random() < 0.5 ? 2 : 3;
-        if (hats.readyState >= 2 && hats.duration) {
-          hats.currentTime = Math.random() * hats.duration;
-        }
-        setTimeout(function () {
-          placeRandom();
-          visible = true;
-          el.style.opacity = '1';
-          bg1.style.opacity = '0.3';
-          window._bg2shake.active = true;
-          bg2.style.filter = 'grayscale(1) contrast(1.4) brightness(0.55)';
-          hats.play().catch(function () {});
-          var showFor = Math.random() < 0.5
-            ? 50  + Math.random() * 150   // short flash
-            : 900 + Math.random() * 3500; // longer appearance
-          setTimeout(cycle, showFor);
-        }, 3000 + Math.random() * 8000);
+      if (Math.random() < 0.04) {
+        enterFlick = true;
+        var x = (Math.random() * 2 - 1) * 70;
+        var y = (Math.random() * 2 - 1) * 70;
+        enterLink.style.transform = 'rotate(180deg) translate(' + x + 'px,' + y + 'px)';
+        return;
       }
-      setTimeout(cycle, 3000);
+      var x = (Math.random() * 2 - 1) * 15;
+      var y = (Math.random() * 2 - 1) * 15;
+      enterLink.style.transform = 'rotate(180deg) translate(' + x + 'px,' + y + 'px)';
+    }, 30);
 
-      function r(range) { return (Math.random() * 2 - 1) * range; }
+    // ── Enter ─────────────────────────────────────────────────────
+    enter.addEventListener('click', function (e) {
+      e.preventDefault();
+      enter.style.opacity       = '0';
+      enter.style.pointerEvents = 'none';
+      setTimeout(function () { enter.style.display = 'none'; }, 1000);
+      bg2.style.opacity   = '0.3';
+      setTimeout(function () {
+        snd.play().catch(function () {});
+      }, 1500);
+      setTimeout(cycle, 1500);
+    });
 
-      function chromaPop() {
-        el.style.setProperty('--rx', r(10) + 'px');
-        el.style.setProperty('--ry', r(4)  + 'px');
-        el.style.setProperty('--rs', r(7)  + 'deg');
-        el.style.setProperty('--cx', r(10) + 'px');
-        el.style.setProperty('--cy', r(4)  + 'px');
-        el.style.setProperty('--cs', r(7)  + 'deg');
-        el.classList.add('pop');
-        setTimeout(function () {
-          el.classList.remove('pop');
-          setTimeout(chromaPop, 80 + Math.random() * 600);
-        }, 40 + Math.random() * 140);
-      }
-      chromaPop();
-    })();
+  })();
   </script>
 
 </body>
