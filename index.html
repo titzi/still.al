@@ -397,6 +397,9 @@
       setBg2Filter('grayscale(1) contrast(1.4) brightness(0.55)');
       bg2Flickering = true;
       setTimeout(flickerBg2, 1500 + Math.random() * 2000);
+      // unlock hats for iOS (must call play() inside user gesture)
+      hats.muted = true;
+      hats.play().then(function () { hats.pause(); hats.currentTime = 0; hats.muted = false; }).catch(function () { hats.muted = false; });
       noise.volume  = 0;
       noise2.volume = 0;
       noise.play().catch(function () {});
