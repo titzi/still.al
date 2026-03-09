@@ -41,7 +41,7 @@
       background-image: url('images/bg2.jpg');
       mix-blend-mode: lighten;
       opacity: 0;
-      transition: opacity 5s ease;
+      transition: opacity 5s ease, filter 0.08s ease;
       /* filter: grayscale(1) contrast(1.4) brightness(0.55); */
     }
 
@@ -53,6 +53,7 @@
       pointer-events: none;
       opacity: 0.22;
       mix-blend-mode: screen;
+      /* transition: opacity 0.08s ease; */
     }
 
     /* ── Scanlines ───────────────────────────────────────────────── */
@@ -158,6 +159,14 @@
     <source src="audio/hats.mp3" type="audio/mpeg">
     <source src="audio/hats.ogg" type="audio/ogg">
   </audio>
+  <audio id="noise" preload="auto" loop>
+    <source src="audio/noise.mp3" type="audio/mpeg">
+    <source src="audio/noise.ogg" type="audio/ogg">
+  </audio>
+  <audio id="noise2" preload="auto" loop>
+    <source src="audio/noise.mp3" type="audio/mpeg">
+    <source src="audio/noise.ogg" type="audio/ogg">
+  </audio>
 
   <div class="bg bg1"></div>
   <div class="bg bg2"></div>
@@ -181,8 +190,10 @@
     var bg2   = document.querySelector('.bg2');
     var snd   = document.getElementById('snd');
     snd.loop  = true;
-    var hats  = document.getElementById('hats');
-    var enter = document.getElementById('enter');
+    var hats   = document.getElementById('hats');
+    var noise  = document.getElementById('noise');
+    var noise2 = document.getElementById('noise2');
+    var enter  = document.getElementById('enter');
 
     // ── Background drift (summed sines, never repeats) ────────────
     var bgLayers = [
@@ -201,6 +212,32 @@
     ];
 
     var shake = { active: false, x: 0, y: 0 };
+
+    // ── bg2 color flicker ─────────────────────────────────────────
+    var bg2BaseFilter  = '';
+    var bg2Flickering  = false;
+
+    function setBg2Filter(f) {
+      bg2BaseFilter      = f;
+      bg2.style.filter   = f;
+    }
+
+    function flickerBg2() {
+      if (!bg2Flickering) return;
+      // brief color flash
+      bg2.style.filter     = 'grayscale(0) contrast(1.4) brightness(0.55)';
+      canvas.style.opacity = '0.1';
+      noise.pause();
+      noise2.pause();
+      setTimeout(function () {
+        bg2.style.filter     = bg2BaseFilter;
+        canvas.style.opacity = '';
+        noise.play().catch(function () {});
+        noise2.play().catch(function () {});
+        // stay in grayscale 3–9× longer than the color flash
+        setTimeout(flickerBg2, 1200 + Math.random() * 5000);
+      }, 60 + Math.random() * 220);
+    }
 
     function bgTick(t) {
       bgLayers.forEach(function (l, i) {
@@ -295,7 +332,7 @@
       el.style.opacity  = '0';
       bg1.style.opacity = '0';
       shake.active      = false;
-      bg2.style.filter  = '';
+      setBg2Filter('grayscale(1) contrast(1.4) brightness(0.55)');
       hats.pause();
 
       hats.playbackRate = 4;
@@ -309,7 +346,7 @@
         el.style.opacity  = '1';
         bg1.style.opacity = '0.3';
         shake.active      = true;
-        bg2.style.filter  = 'grayscale(1) contrast(1.4) brightness(0.55)';
+        setBg2Filter('grayscale(1) contrast(1.4) brightness(0.55)');
         hats.play().catch(function () {});
         var showFor = Math.random() < 0.5
           ? 50  + Math.random() * 150
@@ -345,6 +382,30 @@
       enter.style.pointerEvents = 'none';
       setTimeout(function () { enter.style.display = 'none'; }, 1000);
       bg2.style.opacity   = '0.3';
+      setBg2Filter('grayscale(1) contrast(1.4) brightness(0.55)');
+      bg2Flickering = true;
+      setTimeout(flickerBg2, 1500 + Math.random() * 2000);
+      noise.volume  = 0;
+      noise2.volume = 0;
+      noise.play().catch(function () {});
+      // start noise2 offset by half the track so they never loop at the same time
+      var startNoise2 = function () {
+        var half = noise.duration ? noise.duration / 2 : 15;
+        noise2.currentTime = half;
+        noise2.play().catch(function () {});
+      };
+      if (noise.readyState >= 1) {
+        startNoise2();
+      } else {
+        noise.addEventListener('loadedmetadata', startNoise2, { once: true });
+      }
+      (function fadeNoise() {
+        if (noise.volume < 1) {
+          noise.volume  = Math.min(1, noise.volume  + 0.01);
+          noise2.volume = Math.min(1, noise2.volume + 0.01);
+          setTimeout(fadeNoise, 80);
+        }
+      })();
       setTimeout(function () {
         snd.play().catch(function () {});
       }, 1500);
