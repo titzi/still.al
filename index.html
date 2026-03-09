@@ -398,8 +398,11 @@
       bg2Flickering = true;
       setTimeout(flickerBg2, 1500 + Math.random() * 2000);
       // unlock hats for iOS (must call play() inside user gesture)
-      hats.muted = true;
-      hats.play().then(function () { hats.pause(); hats.currentTime = 0; hats.muted = false; }).catch(function () { hats.muted = false; });
+      hats.volume = 0;
+      hats.play().catch(function () {});
+      hats.pause();
+      hats.currentTime = 0;
+      setTimeout(function () { hats.volume = 1; }, 100);
       noise.volume  = 0;
       noise2.volume = 0;
       noise.play().catch(function () {});
