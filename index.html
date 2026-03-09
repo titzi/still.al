@@ -121,6 +121,12 @@
     .glitch.pop::before { opacity: 1; }
     .glitch.pop::after  { opacity: 1; }
 
+    @-moz-document url-prefix() {
+      .glitch {
+        -webkit-text-stroke: 0.3px #000;
+      }
+    }
+
     /* ── Enter screen ────────────────────────────────────────────── */
     #enter {
       position: fixed;
