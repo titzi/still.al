@@ -41,7 +41,7 @@
       background-image: url('images/bg2.jpg');
       mix-blend-mode: lighten;
       opacity: 0;
-      transition: opacity 5s ease, filter 0.08s ease;
+      transition: opacity 7s ease, filter 0.08s ease;
       /* filter: grayscale(1) contrast(1.4) brightness(0.55); */
     }
 
@@ -136,7 +136,7 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      transition: opacity 1s ease;
+      transition: opacity 2s ease;
     }
     #enter a {
       font-family: 'UnifrakturMaguntia', sans-serif;
@@ -147,11 +147,8 @@
       user-select: none;
       display: inline-block;
       transform: rotate(180deg);
-      transition: transform 0.4s ease;
+      transition: transform 2s ease;
       opacity: 0.2;
-    }
-    #enter a:hover {
-      opacity: 0.4;
     }
   </style>
 </head>
@@ -342,8 +339,12 @@
       hats.pause();
 
       hats.playbackRate = 4;
-      if (hats.readyState >= 2 && hats.duration) {
-        hats.currentTime = Math.random() * hats.duration;
+
+      function playHatsFromRandom() {
+        if (hats.duration) {
+          hats.currentTime = Math.random() * hats.duration;
+        }
+        hats.play().catch(function () {});
       }
 
       setTimeout(function () {
@@ -353,10 +354,15 @@
         bg1.style.opacity = '0.3';
         shake.active      = true;
         setBg2Filter('grayscale(1) contrast(1.4) brightness(0.55)');
-        hats.play().catch(function () {});
+        if (hats.readyState >= 1 && hats.duration) {
+          playHatsFromRandom();
+        } else {
+          hats.addEventListener('loadedmetadata', playHatsFromRandom, { once: true });
+          hats.load();
+        }
         var showFor = Math.random() < 0.5
           ? 50  + Math.random() * 150
-          : 900 + Math.random() * 2100;
+          : 900 + Math.random() * 1500;
         setTimeout(cycle, showFor);
       }, 3000 + Math.random() * 8000);
     }
